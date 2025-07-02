@@ -30,7 +30,13 @@
 /* Drag scroll settings */
 #define PLOOPY_DRAGSCROLL_INVERT
 #define PLOOPY_DRAGSCROLL_FIXED
-#define PLOOPY_DRAGSCROLL_DPI 100
+#define PLOOPY_DRAGSCROLL_DPI 50
+
+// Adjust these divisors to control base drag scroll sensitivity
+// Lower values = faster scrolling, higher values = slower scrolling
+// You can use any positive value (e.g., 4.0, 8.0, 16.0, 32.0, etc.)
+#define PLOOPY_DRAGSCROLL_DIVISOR_H 50.0  // Default horizontal divisor
+#define PLOOPY_DRAGSCROLL_DIVISOR_V 50.0  // Default vertical divisor
 
 #define ENCODER_BUTTON_COL 1
 #define ENCODER_BUTTON_ROW 0

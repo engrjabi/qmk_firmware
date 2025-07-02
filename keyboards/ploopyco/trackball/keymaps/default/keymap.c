@@ -19,8 +19,7 @@
 
 // Custom keycodes
 enum custom_keycodes {
-    SCROLL_SPEED = SAFE_RANGE,
-    DRAG_OR_META  // This will handle both drag scroll and Meta+D
+    DRAG_OR_META = SAFE_RANGE  // This will handle both drag scroll and Meta+D
 };
 
 // Tapdance declarations (for other buttons)
@@ -37,13 +36,10 @@ tap_dance_action_t tap_dance_actions[] = {
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [0] = LAYOUT( /* Base */
-        DRAG_OR_META, SCROLL_SPEED, KC_BTN1,
+        DRAG_OR_META, KC_BTN3, KC_BTN1,
           TD(TD_BTN2_ESC), TD(TD_PASTE_ALTV)
     ),
 };
-
-static uint8_t scroll_speed_index = 1;
-static uint8_t scroll_speeds[] = {1, 2, 4, 8};
 
 // Double tap detection variables
 static uint16_t drag_timer = 0;
@@ -52,12 +48,6 @@ static bool drag_tap_registered = false;
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
-        case SCROLL_SPEED:
-            if (record->event.pressed) {
-                scroll_speed_index = (scroll_speed_index + 1) % 4;
-            }
-            return false;
-
         case DRAG_OR_META:
             if (record->event.pressed) {
                 if (drag_tap_registered && timer_elapsed(drag_timer) < DOUBLE_TAP_TIMEOUT) {
@@ -101,12 +91,4 @@ void matrix_scan_user(void) {
     }
 }
 
-report_mouse_t pointing_device_task_user(report_mouse_t mouse_report) {
-    if (mouse_report.v != 0) {
-        mouse_report.v *= scroll_speeds[scroll_speed_index];
-    }
-    if (mouse_report.h != 0) {
-        mouse_report.h *= scroll_speeds[scroll_speed_index];
-    }
-    return mouse_report;
-}
+// No longer needed - removed scroll speed multiplier functionality
