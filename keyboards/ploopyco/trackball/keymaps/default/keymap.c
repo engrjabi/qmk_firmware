@@ -19,7 +19,7 @@
 
 // Custom keycodes
 enum custom_keycodes {
-    DRAG_OR_META = SAFE_RANGE  // This will handle both drag scroll and Meta+D
+    ALT_TAB_OR_META = SAFE_RANGE  // This will handle alt+tab and Meta+D
 };
 
 // Tapdance declarations (for other buttons)
@@ -36,42 +36,39 @@ tap_dance_action_t tap_dance_actions[] = {
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [0] = LAYOUT( /* Base */
-        DRAG_OR_META, KC_BTN3, KC_BTN1,
+        ALT_TAB_OR_META, DRAG_SCROLL, KC_BTN1,
           TD(TD_BTN2_ESC), TD(TD_PASTE_ALTV)
     ),
 };
 
 // Double tap detection variables
-static uint16_t drag_timer = 0;
-static bool drag_tap_registered = false;
+static uint16_t alt_tab_timer = 0;
+static bool alt_tab_tap_registered = false;
 #define DOUBLE_TAP_TIMEOUT 300
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
-        case DRAG_OR_META:
+        case ALT_TAB_OR_META:
             if (record->event.pressed) {
-                if (drag_tap_registered && timer_elapsed(drag_timer) < DOUBLE_TAP_TIMEOUT) {
-                    // Double tap detected - send Meta+D instead of drag scroll
-                    drag_tap_registered = false;
+                if (alt_tab_tap_registered && timer_elapsed(alt_tab_timer) < DOUBLE_TAP_TIMEOUT) {
+                    // Double tap detected - send Meta+D
+                    alt_tab_tap_registered = false;
                     tap_code16(G(KC_D));
                 } else {
                     // First tap - set timer and wait
-                    drag_tap_registered = true;
-                    drag_timer = timer_read();
+                    alt_tab_tap_registered = true;
+                    alt_tab_timer = timer_read();
                 }
             } else {
                 // Key release - check if it's a single tap
-                if (drag_tap_registered) {
-                    if (timer_elapsed(drag_timer) < DOUBLE_TAP_TIMEOUT) {
+                if (alt_tab_tap_registered) {
+                    if (timer_elapsed(alt_tab_timer) < DOUBLE_TAP_TIMEOUT) {
                         // Still within double tap window, wait for potential second tap
                         // Don't do anything yet
                     } else {
                         // Too long for double tap, must be single tap
-                        drag_tap_registered = false;
-                        // Directly call process_record_kb with DRAG_SCROLL
-                        keyrecord_t drag_record = {};
-                        drag_record.event.pressed = true;
-                        process_record_kb(DRAG_SCROLL, &drag_record);
+                        alt_tab_tap_registered = false;
+                        tap_code16(A(KC_TAB));
                     }
                 }
             }
@@ -82,12 +79,10 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
 // Matrix scan to handle single tap after timeout
 void matrix_scan_user(void) {
-    if (drag_tap_registered && timer_elapsed(drag_timer) >= DOUBLE_TAP_TIMEOUT) {
+    if (alt_tab_tap_registered && timer_elapsed(alt_tab_timer) >= DOUBLE_TAP_TIMEOUT) {
         // Timeout reached without second tap - execute single tap action
-        drag_tap_registered = false;
-        keyrecord_t drag_record = {};
-        drag_record.event.pressed = true;
-        process_record_kb(DRAG_SCROLL, &drag_record);
+        alt_tab_tap_registered = false;
+        tap_code16(A(KC_TAB));
     }
 }
 
