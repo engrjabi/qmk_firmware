@@ -3,9 +3,7 @@
 # Navigate to the QMK project root directory
 cd "$(dirname "$0")"
 
-# Activate the conda environment
-source ~/miniconda3/etc/profile.d/conda.sh
-conda activate qmk_ploopy
+# conda activate qmk_ploopy
 
 # Compile the firmware
 echo "Compiling Ploopy Trackball firmware..."
