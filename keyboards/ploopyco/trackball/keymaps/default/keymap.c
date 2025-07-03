@@ -20,8 +20,26 @@
 // Custom keycodes
 enum custom_keycodes {
     ALT_TAB_OR_META = SAFE_RANGE,  // This will handle alt+tab and Meta+D
-    SMART_LEFT_CLICK               // Left click that disables drag scroll if active
+    SMART_LEFT_CLICK,              // Left click that disables drag scroll if active
+    CYCLE_SCROLL_MODE,             // Cycle through scroll modes
+    VOLUME_SCROLL_MODE,            // Toggle volume scroll mode
+    TAB_SCROLL_MODE                // Toggle tab scroll mode
 };
+
+// Scroll mode state
+enum scroll_modes {
+    SCROLL_NORMAL,
+    SCROLL_VOLUME,
+    SCROLL_TAB
+};
+
+static uint8_t current_scroll_mode = SCROLL_NORMAL;
+
+// Scroll speed control variables
+static uint16_t last_scroll_time = 0;
+#define TAB_SCROLL_DEBOUNCE 150  // Slower scrolling for tab mode (vs default 5ms)
+#define VOLUME_SCROLL_DEBOUNCE 50  // Medium speed for volume
+#define NORMAL_SCROLL_DEBOUNCE 5   // Fast scrolling for normal mode
 
 // Tapdance declarations (for other buttons)
 enum {
@@ -38,38 +56,53 @@ tap_dance_action_t tap_dance_actions[] = {
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [0] = LAYOUT( /* Base */
         ALT_TAB_OR_META, DRAG_SCROLL, SMART_LEFT_CLICK,
-          TD(TD_BTN2_ESC), TD(TD_PASTE_ALTV)
+          TD(TD_BTN2_ESC), CYCLE_SCROLL_MODE
     ),
 };
 
-// Double tap detection variables
-static uint16_t alt_tab_timer = 0;
-static bool alt_tab_tap_registered = false;
-#define DOUBLE_TAP_TIMEOUT 300
+
+// Scroll mode functions
+void cycle_scroll_mode(void) {
+    current_scroll_mode = (current_scroll_mode + 1) % 3;
+}
+
+void set_scroll_mode(uint8_t mode) {
+    current_scroll_mode = mode;
+}
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
+        case CYCLE_SCROLL_MODE:
+            if (record->event.pressed) {
+                cycle_scroll_mode();
+            }
+            return false;
+        case VOLUME_SCROLL_MODE:
+            if (record->event.pressed) {
+                set_scroll_mode(SCROLL_VOLUME);
+            }
+            return false;
+        case TAB_SCROLL_MODE:
+            if (record->event.pressed) {
+                set_scroll_mode(SCROLL_TAB);
+            }
+            return false;
         case ALT_TAB_OR_META:
             if (record->event.pressed) {
-                if (alt_tab_tap_registered && timer_elapsed(alt_tab_timer) < DOUBLE_TAP_TIMEOUT) {
-                    // Double tap detected - send Meta+D
-                    alt_tab_tap_registered = false;
-                    tap_code16(G(KC_D));
-                } else {
-                    // First tap - set timer and wait
-                    alt_tab_tap_registered = true;
-                    alt_tab_timer = timer_read();
-                }
-            } else {
-                // Key release - check if it's a single tap
-                if (alt_tab_tap_registered) {
-                    if (timer_elapsed(alt_tab_timer) < DOUBLE_TAP_TIMEOUT) {
-                        // Still within double tap window, wait for potential second tap
-                        // Don't do anything yet
+                tap_code16(G(KC_D));
+            }
+            return false;
+        case DRAG_SCROLL:
+            {
+                extern bool is_drag_scroll;
+                if (record->event.pressed) {
+                    if (is_drag_scroll) {
+                        // When turning off drag scroll, reset everything to normal
+                        toggle_drag_scroll();
+                        current_scroll_mode = SCROLL_NORMAL;
                     } else {
-                        // Too long for double tap, must be single tap
-                        alt_tab_tap_registered = false;
-                        tap_code16(A(KC_TAB));
+                        // When turning on drag scroll, just toggle it
+                        toggle_drag_scroll();
                     }
                 }
             }
@@ -78,10 +111,13 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             {
                 extern bool is_drag_scroll;
                 if (record->event.pressed) {
-                    if (is_drag_scroll) {
-                        // If drag scroll is active, turn it off instead of left clicking
-                        toggle_drag_scroll();
-                        return false;
+                    // Reset both drag scroll and custom scroll modes with one click
+                    if (is_drag_scroll || current_scroll_mode != SCROLL_NORMAL) {
+                        if (is_drag_scroll) {
+                            toggle_drag_scroll();
+                        }
+                        current_scroll_mode = SCROLL_NORMAL;
+                        return false; // Don't perform left click when resetting modes
                     }
                 }
                 // For normal left click behavior (both press and release), 
@@ -97,13 +133,97 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
-// Matrix scan to handle single tap after timeout
-void matrix_scan_user(void) {
-    if (alt_tab_tap_registered && timer_elapsed(alt_tab_timer) >= DOUBLE_TAP_TIMEOUT) {
-        // Timeout reached without second tap - execute single tap action
-        alt_tab_tap_registered = false;
-        tap_code16(A(KC_TAB));
+
+// Handle physical scroll wheel events with speed control
+bool encoder_update_user(uint8_t index, bool clockwise) {
+    uint16_t debounce_time;
+    
+    switch (current_scroll_mode) {
+        case SCROLL_VOLUME:
+            debounce_time = VOLUME_SCROLL_DEBOUNCE;
+            if (timer_elapsed(last_scroll_time) < debounce_time) {
+                return false; // Too soon, ignore this scroll event
+            }
+            last_scroll_time = timer_read();
+            if (clockwise) {
+                tap_code(KC_VOLU);
+            } else {
+                tap_code(KC_VOLD);
+            }
+            return false; // Prevent default scroll behavior
+            
+        case SCROLL_TAB:
+            debounce_time = TAB_SCROLL_DEBOUNCE;
+            if (timer_elapsed(last_scroll_time) < debounce_time) {
+                return false; // Too soon, ignore this scroll event
+            }
+            last_scroll_time = timer_read();
+            if (clockwise) {
+                tap_code16(C(KC_TAB));
+            } else {
+                tap_code16(C(S(KC_TAB)));
+            }
+            return false; // Prevent default scroll behavior
+            
+        case SCROLL_NORMAL:
+        default:
+            return true; // Allow default scroll behavior
     }
+}
+
+// Enhanced scroll mode processing for drag scroll
+report_mouse_t pointing_device_task_user(report_mouse_t mouse_report) {
+    // Only process if we have scroll data and we're not in normal mode
+    if ((mouse_report.v != 0 || mouse_report.h != 0) && current_scroll_mode != SCROLL_NORMAL) {
+        
+        // Handle vertical scroll
+        if (mouse_report.v != 0) {
+            switch (current_scroll_mode) {
+                case SCROLL_VOLUME:
+                    if (mouse_report.v > 0) {
+                        tap_code(KC_VOLU);
+                    } else {
+                        tap_code(KC_VOLD);
+                    }
+                    break;
+                case SCROLL_TAB:
+                    if (mouse_report.v > 0) {
+                        tap_code16(C(KC_TAB));
+                    } else {
+                        tap_code16(C(S(KC_TAB)));
+                    }
+                    break;
+            }
+            // Clear scroll values after processing
+            mouse_report.v = 0;
+        }
+        
+        // Handle horizontal scroll (optional - could be used for additional functions)
+        if (mouse_report.h != 0) {
+            switch (current_scroll_mode) {
+                case SCROLL_VOLUME:
+                    // Horizontal scroll also controls volume
+                    if (mouse_report.h > 0) {
+                        tap_code(KC_VOLU);
+                    } else {
+                        tap_code(KC_VOLD);
+                    }
+                    break;
+                case SCROLL_TAB:
+                    // Horizontal scroll also controls tab switching
+                    if (mouse_report.h > 0) {
+                        tap_code16(C(KC_TAB));
+                    } else {
+                        tap_code16(C(S(KC_TAB)));
+                    }
+                    break;
+            }
+            // Clear scroll values after processing
+            mouse_report.h = 0;
+        }
+    }
+    
+    return mouse_report;
 }
 
 // No longer needed - removed scroll speed multiplier functionality
