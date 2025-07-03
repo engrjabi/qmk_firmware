@@ -19,7 +19,8 @@
 
 // Custom keycodes
 enum custom_keycodes {
-    ALT_TAB_OR_META = SAFE_RANGE  // This will handle alt+tab and Meta+D
+    ALT_TAB_OR_META = SAFE_RANGE,  // This will handle alt+tab and Meta+D
+    SMART_LEFT_CLICK               // Left click that disables drag scroll if active
 };
 
 // Tapdance declarations (for other buttons)
@@ -36,7 +37,7 @@ tap_dance_action_t tap_dance_actions[] = {
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [0] = LAYOUT( /* Base */
-        ALT_TAB_OR_META, DRAG_SCROLL, KC_BTN1,
+        ALT_TAB_OR_META, DRAG_SCROLL, SMART_LEFT_CLICK,
           TD(TD_BTN2_ESC), TD(TD_PASTE_ALTV)
     ),
 };
@@ -70,6 +71,25 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                         alt_tab_tap_registered = false;
                         tap_code16(A(KC_TAB));
                     }
+                }
+            }
+            return false;
+        case SMART_LEFT_CLICK:
+            {
+                extern bool is_drag_scroll;
+                if (record->event.pressed) {
+                    if (is_drag_scroll) {
+                        // If drag scroll is active, turn it off instead of left clicking
+                        toggle_drag_scroll();
+                        return false;
+                    }
+                }
+                // For normal left click behavior (both press and release), 
+                // register/unregister the button to allow drag operations
+                if (record->event.pressed) {
+                    register_code(KC_BTN1);
+                } else {
+                    unregister_code(KC_BTN1);
                 }
             }
             return false;
