@@ -19,7 +19,8 @@
 
 // Custom keycodes
 enum custom_keycodes {
-    SMART_LEFT_CLICK = SAFE_RANGE  // Left click that disables drag scroll if active
+    SMART_LEFT_CLICK = SAFE_RANGE, // Left click that disables drag scroll if active
+    META_D_RIGHTCLICK               // Tap for Meta+D, hold for right click
 };
 
 // Scroll mode state
@@ -31,19 +32,17 @@ static uint8_t current_scroll_mode = SCROLL_NORMAL;
 
 // Tapdance declarations
 enum {
-    TD_META_RIGHTCLICK,
     TD_PASTE_ALTV
 };
 
 // Tapdance definitions
 tap_dance_action_t tap_dance_actions[] = {
-    [TD_META_RIGHTCLICK] = ACTION_TAP_DANCE_DOUBLE(G(KC_D), KC_BTN2),
     [TD_PASTE_ALTV] = ACTION_TAP_DANCE_DOUBLE(C(KC_V), A(KC_V))
 };
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [0] = LAYOUT( /* Base */
-        TD(TD_META_RIGHTCLICK), DRAG_SCROLL, SMART_LEFT_CLICK,
+        META_D_RIGHTCLICK, DRAG_SCROLL, SMART_LEFT_CLICK,
           C(S(KC_TAB)), C(KC_TAB)
     ),
 };
@@ -51,6 +50,22 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
+        case META_D_RIGHTCLICK:
+            if (record->event.pressed) {
+                if (record->tap.count > 0) {
+                    // Tap: send Meta+D
+                    tap_code16(G(KC_D));
+                } else {
+                    // Hold: send right click
+                    register_code(KC_BTN2);
+                }
+            } else {
+                if (record->tap.count == 0) {
+                    // Release hold: unregister right click
+                    unregister_code(KC_BTN2);
+                }
+            }
+            return false;
         case DRAG_SCROLL:
             {
                 extern bool is_drag_scroll;
