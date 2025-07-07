@@ -17,6 +17,11 @@
  */
 #include QMK_KEYBOARD_H
 
+// Define tapping term if not already defined
+#ifndef TAPPING_TERM
+#define TAPPING_TERM 200
+#endif
+
 // Custom keycodes
 enum custom_keycodes {
     SMART_LEFT_CLICK = SAFE_RANGE, // Left click that disables drag scroll if active
@@ -29,6 +34,10 @@ enum scroll_modes {
 };
 
 static uint8_t current_scroll_mode = SCROLL_NORMAL;
+
+// Timer for tap/hold detection
+static uint16_t meta_d_timer = 0;
+static bool meta_d_pressed = false;
 
 // Tapdance declarations
 enum {
@@ -52,17 +61,21 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
         case META_D_RIGHTCLICK:
             if (record->event.pressed) {
-                if (record->tap.count > 0) {
-                    // Tap: send Meta+D
-                    tap_code16(G(KC_D));
-                } else {
-                    // Hold: send right click
-                    register_code(KC_BTN2);
-                }
+                // Button pressed - start timer
+                meta_d_timer = timer_read();
+                meta_d_pressed = true;
             } else {
-                if (record->tap.count == 0) {
-                    // Release hold: unregister right click
-                    unregister_code(KC_BTN2);
+                // Button released
+                if (meta_d_pressed) {
+                    // Check if it was a tap (less than TAPPING_TERM)
+                    if (timer_elapsed(meta_d_timer) < TAPPING_TERM) {
+                        // Short press - send Meta+D
+                        tap_code16(G(KC_D));
+                    } else {
+                        // Long press - release right click
+                        unregister_code(KC_BTN2);
+                    }
+                    meta_d_pressed = false;
                 }
             }
             return false;
@@ -113,6 +126,11 @@ bool encoder_update_user(uint8_t index, bool clockwise) {
 
 // Normal scroll processing
 report_mouse_t pointing_device_task_user(report_mouse_t mouse_report) {
+    // Check if we're holding the meta_d button and it's time to trigger right click
+    if (meta_d_pressed && timer_elapsed(meta_d_timer) >= TAPPING_TERM) {
+        register_code(KC_BTN2);
+        meta_d_pressed = false; // Prevent re-triggering
+    }
     return mouse_report;
 }
 
