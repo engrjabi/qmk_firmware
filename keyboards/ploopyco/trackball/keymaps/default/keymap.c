@@ -36,6 +36,16 @@ enum scroll_modes {
 
 static uint8_t current_scroll_mode = SCROLL_NORMAL;
 
+// Tab navigation hold states
+static bool click_prev_tab_held = false;
+static bool click_next_tab_held = false;
+static uint16_t tab_hold_timer = 0;
+static bool initial_click_sent = false;
+static uint16_t last_tab_send = 0;
+
+#define TAB_INITIAL_DELAY 50   // Initial delay after click (ms)
+#define TAB_REPEAT_DELAY 150   // Delay between repeated tabs (ms)
+
 // Tapdance declarations
 enum {
     TD_PASTE_ALTV
@@ -105,18 +115,30 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             return false;
         case CLICK_PREV_TAB:
             if (record->event.pressed) {
-                // Send left click then Ctrl+Shift+Tab
+                // Initial press: send left click and set up for hold
                 tap_code(KC_BTN1);
-                wait_ms(50);  // 50ms delay
-                tap_code16(C(S(KC_TAB)));
+                click_prev_tab_held = true;
+                tab_hold_timer = timer_read();
+                initial_click_sent = true;
+                last_tab_send = 0;
+            } else {
+                // Release: stop holding
+                click_prev_tab_held = false;
+                initial_click_sent = false;
             }
             return false;
         case CLICK_NEXT_TAB:
             if (record->event.pressed) {
-                // Send left click then Ctrl+Tab
+                // Initial press: send left click and set up for hold
                 tap_code(KC_BTN1);
-                wait_ms(50);  // 50ms delay
-                tap_code16(C(KC_TAB));
+                click_next_tab_held = true;
+                tab_hold_timer = timer_read();
+                initial_click_sent = true;
+                last_tab_send = 0;
+            } else {
+                // Release: stop holding
+                click_next_tab_held = false;
+                initial_click_sent = false;
             }
             return false;
     }
@@ -127,6 +149,32 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 // Handle physical scroll wheel events
 bool encoder_update_user(uint8_t index, bool clockwise) {
     return true; // Allow default scroll behavior
+}
+
+// Matrix scan for continuous tab sending
+void matrix_scan_user(void) {
+    if (click_prev_tab_held || click_next_tab_held) {
+        uint16_t elapsed = timer_elapsed(tab_hold_timer);
+        
+        // First tab after initial delay
+        if (initial_click_sent && elapsed >= TAB_INITIAL_DELAY && last_tab_send == 0) {
+            if (click_prev_tab_held) {
+                tap_code16(C(S(KC_TAB)));
+            } else if (click_next_tab_held) {
+                tap_code16(C(KC_TAB));
+            }
+            last_tab_send = elapsed;
+        }
+        // Subsequent tabs at repeat rate
+        else if (last_tab_send > 0 && (elapsed - last_tab_send) >= TAB_REPEAT_DELAY) {
+            if (click_prev_tab_held) {
+                tap_code16(C(S(KC_TAB)));
+            } else if (click_next_tab_held) {
+                tap_code16(C(KC_TAB));
+            }
+            last_tab_send = elapsed;
+        }
+    }
 }
 
 // Normal scroll processing
