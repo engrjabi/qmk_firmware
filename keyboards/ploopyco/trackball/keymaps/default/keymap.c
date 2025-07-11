@@ -44,7 +44,12 @@ static bool initial_click_sent = false;
 static uint16_t last_tab_send = 0;
 
 #define TAB_INITIAL_DELAY 50   // Initial delay after click (ms)
-#define TAB_REPEAT_DELAY 150   // Delay between repeated tabs (ms)
+#define TAB_REPEAT_DELAY 300   // Delay between repeated tabs (ms)
+
+// Double tap detection for first button
+static uint16_t first_button_timer = 0;
+static uint8_t first_button_tap_count = 0;
+#define DOUBLE_TAP_TERM 300   // Max time between taps for double tap (ms)
 
 // Tapdance declarations
 enum {
@@ -67,15 +72,30 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
         case LT(0, KC_NO):
-            if (record->tap.count && record->event.pressed) {
-                // Tap: send Meta+D
-                tap_code16(G(KC_D));
-            } else if (record->event.pressed) {
-                // Hold: send right click press
-                register_code(KC_BTN2);
-            } else if (!record->tap.count) {
-                // Release hold: release right click
-                unregister_code(KC_BTN2);
+            if (record->event.pressed) {
+                if (record->tap.count > 0) {
+                    // Handle taps
+                    if (timer_elapsed(first_button_timer) < DOUBLE_TAP_TERM && first_button_tap_count == 1) {
+                        // Double tap detected - send Alt+Tab
+                        tap_code16(A(KC_TAB));
+                        first_button_tap_count = 0;  // Reset after double tap
+                    } else {
+                        // First tap or tap after timeout
+                        first_button_tap_count = 1;
+                        first_button_timer = timer_read();
+                        // Don't send Meta+D yet, wait to see if it's a double tap
+                    }
+                } else {
+                    // Hold: send right click press
+                    register_code(KC_BTN2);
+                    first_button_tap_count = 0;  // Reset tap count on hold
+                }
+            } else {
+                if (!record->tap.count) {
+                    // Release hold: release right click
+                    unregister_code(KC_BTN2);
+                }
+                // Single tap is handled in matrix_scan_user
             }
             return false;
         case DRAG_SCROLL:
@@ -151,8 +171,16 @@ bool encoder_update_user(uint8_t index, bool clockwise) {
     return true; // Allow default scroll behavior
 }
 
-// Matrix scan for continuous tab sending
+// Matrix scan for continuous tab sending and single tap timeout
 void matrix_scan_user(void) {
+    // Check for single tap timeout on first button
+    if (first_button_tap_count == 1 && timer_elapsed(first_button_timer) >= DOUBLE_TAP_TERM) {
+        // Single tap timeout - send Meta+D
+        tap_code16(G(KC_D));
+        first_button_tap_count = 0;
+    }
+    
+    // Handle tab key repeating
     if (click_prev_tab_held || click_next_tab_held) {
         uint16_t elapsed = timer_elapsed(tab_hold_timer);
         
