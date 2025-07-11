@@ -24,7 +24,9 @@
 
 // Custom keycodes
 enum custom_keycodes {
-    SMART_LEFT_CLICK = SAFE_RANGE  // Left click that disables drag scroll if active
+    SMART_LEFT_CLICK = SAFE_RANGE,  // Left click that disables drag scroll if active
+    CLICK_PREV_TAB,                 // Left click + Ctrl+Shift+Tab
+    CLICK_NEXT_TAB                  // Left click + Ctrl+Tab
 };
 
 // Scroll mode state
@@ -47,7 +49,7 @@ tap_dance_action_t tap_dance_actions[] = {
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [0] = LAYOUT( /* Base */
         LT(0, KC_NO), DRAG_SCROLL, SMART_LEFT_CLICK,
-          C(S(KC_TAB)), C(KC_TAB)
+          CLICK_PREV_TAB, CLICK_NEXT_TAB
     ),
 };
 
@@ -99,6 +101,22 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 } else {
                     unregister_code(KC_BTN1);
                 }
+            }
+            return false;
+        case CLICK_PREV_TAB:
+            if (record->event.pressed) {
+                // Send left click then Ctrl+Shift+Tab
+                tap_code(KC_BTN1);
+                wait_ms(50);  // 50ms delay
+                tap_code16(C(S(KC_TAB)));
+            }
+            return false;
+        case CLICK_NEXT_TAB:
+            if (record->event.pressed) {
+                // Send left click then Ctrl+Tab
+                tap_code(KC_BTN1);
+                wait_ms(50);  // 50ms delay
+                tap_code16(C(KC_TAB));
             }
             return false;
     }
