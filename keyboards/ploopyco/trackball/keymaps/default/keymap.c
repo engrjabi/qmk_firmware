@@ -51,6 +51,10 @@ static uint16_t first_button_timer = 0;
 static uint8_t first_button_tap_count = 0;
 #define DOUBLE_TAP_TERM 300   // Max time between taps for double tap (ms)
 
+// Asymmetric scroll sensitivity
+#define SCROLL_UP_MULTIPLIER 2  // How much more sensitive scroll up is vs down
+#define MAX_SCROLL_VALUE 127    // Maximum value for int8_t scroll report
+
 // Tapdance declarations
 enum {
     TD_PASTE_ALTV
@@ -205,8 +209,18 @@ void matrix_scan_user(void) {
     }
 }
 
-// Normal scroll processing
+// Normal scroll processing with asymmetric sensitivity
 report_mouse_t pointing_device_task_user(report_mouse_t mouse_report) {
+    // Make scroll up more sensitive than scroll down
+    if (mouse_report.v > 0) {
+        // Scroll up - multiply with bounds checking to prevent overflow
+        int16_t new_value = (int16_t)mouse_report.v * SCROLL_UP_MULTIPLIER;
+        mouse_report.v = (new_value > MAX_SCROLL_VALUE) ? MAX_SCROLL_VALUE : new_value;
+    }
+    // Scroll down remains at normal sensitivity (1x)
+    
+    // Horizontal scroll remains symmetric (1x both directions)
+    
     return mouse_report;
 }
 
