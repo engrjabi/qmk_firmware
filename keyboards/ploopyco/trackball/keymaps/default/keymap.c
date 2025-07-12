@@ -43,8 +43,13 @@ static uint16_t tab_hold_timer = 0;
 static bool initial_click_sent = false;
 static uint16_t last_tab_send = 0;
 
+// Tab session tracking
+static bool tab_session_active = false;
+static uint16_t last_tab_activity = 0;
+
 #define TAB_INITIAL_DELAY 50   // Initial delay after click (ms)
 #define TAB_REPEAT_DELAY 300   // Delay between repeated tabs (ms)
+#define TAB_SESSION_TIMEOUT 1000  // Reset session after 1 second of inactivity
 
 // Double tap detection for first button
 static uint16_t first_button_timer = 0;
@@ -139,30 +144,44 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             return false;
         case CLICK_PREV_TAB:
             if (record->event.pressed) {
-                // Initial press: send left click and set up for hold
-                tap_code(KC_BTN1);
+                // Check if this is the first tap in a session
+                if (!tab_session_active) {
+                    // First tap: send left click
+                    tap_code(KC_BTN1);
+                    tab_session_active = true;
+                }
+                // Set up for hold
                 click_prev_tab_held = true;
                 tab_hold_timer = timer_read();
                 initial_click_sent = true;
                 last_tab_send = 0;
+                last_tab_activity = timer_read();
             } else {
                 // Release: stop holding
                 click_prev_tab_held = false;
                 initial_click_sent = false;
+                last_tab_activity = timer_read();
             }
             return false;
         case CLICK_NEXT_TAB:
             if (record->event.pressed) {
-                // Initial press: send left click and set up for hold
-                tap_code(KC_BTN1);
+                // Check if this is the first tap in a session
+                if (!tab_session_active) {
+                    // First tap: send left click
+                    tap_code(KC_BTN1);
+                    tab_session_active = true;
+                }
+                // Set up for hold
                 click_next_tab_held = true;
                 tab_hold_timer = timer_read();
                 initial_click_sent = true;
                 last_tab_send = 0;
+                last_tab_activity = timer_read();
             } else {
                 // Release: stop holding
                 click_next_tab_held = false;
                 initial_click_sent = false;
+                last_tab_activity = timer_read();
             }
             return false;
     }
@@ -182,6 +201,11 @@ void matrix_scan_user(void) {
         // Single tap timeout - send Meta+D
         tap_code16(G(KC_D));
         first_button_tap_count = 0;
+    }
+    
+    // Check for tab session timeout
+    if (tab_session_active && timer_elapsed(last_tab_activity) >= TAB_SESSION_TIMEOUT) {
+        tab_session_active = false;
     }
     
     // Handle tab key repeating
