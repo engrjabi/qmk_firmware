@@ -146,8 +146,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             if (record->event.pressed) {
                 // Check if this is the first tap in a session
                 if (!tab_session_active) {
-                    // First tap: send left click
-                    tap_code(KC_BTN1);
                     tab_session_active = true;
                 }
                 // Set up for hold
@@ -167,8 +165,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             if (record->event.pressed) {
                 // Check if this is the first tap in a session
                 if (!tab_session_active) {
-                    // First tap: send left click
-                    tap_code(KC_BTN1);
                     tab_session_active = true;
                 }
                 // Set up for hold
