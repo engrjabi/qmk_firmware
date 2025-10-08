@@ -27,6 +27,11 @@
 #define ROTATIONAL_TRANSFORM_ANGLE 20
 #define POINTING_DEVICE_INVERT_Y
 
+/* Drag scroll settings */
+#define PLOOPY_DRAGSCROLL_INVERT
+#define PLOOPY_DRAGSCROLL_FIXED
+#define PLOOPY_DRAGSCROLL_DPI 100
+
 #define ENCODER_BUTTON_COL 1
 #define ENCODER_BUTTON_ROW 0
 /* Custom encoder needs to specify just how many encoders we have */
