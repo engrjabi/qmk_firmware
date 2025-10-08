@@ -92,13 +92,13 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                     }
                 } else {
                     // Hold: send right click press
-                    register_code(KC_BTN2);
+                    register_code(MS_BTN2);
                     first_button_tap_count = 0;  // Reset tap count on hold
                 }
             } else {
                 if (!record->tap.count) {
                     // Release hold: release right click
-                    unregister_code(KC_BTN2);
+                    unregister_code(MS_BTN2);
                 }
                 // Single tap is handled in matrix_scan_user
             }
@@ -113,8 +113,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                         current_scroll_mode = SCROLL_NORMAL;
                     } else {
                         // When turning on drag scroll, release any held mouse buttons to prevent interference
-                        unregister_code(KC_BTN1);
-                        unregister_code(KC_BTN2);
+                        unregister_code(MS_BTN1);
+                        unregister_code(MS_BTN2);
                         toggle_drag_scroll();
                     }
                 }
@@ -131,12 +131,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                         return false; // Don't perform left click when resetting modes
                     }
                 }
-                // For normal left click behavior (both press and release), 
+                // For normal left click behavior (both press and release),
                 // register/unregister the button to allow drag operations
                 if (record->event.pressed) {
-                    register_code(KC_BTN1);
+                    register_code(MS_BTN1);
                 } else {
-                    unregister_code(KC_BTN1);
+                    unregister_code(MS_BTN1);
                 }
             }
             return false;
