@@ -56,10 +56,6 @@ static uint16_t first_button_timer = 0;
 static uint8_t first_button_tap_count = 0;
 #define DOUBLE_TAP_TERM 300   // Max time between taps for double tap (ms)
 
-// Asymmetric scroll sensitivity
-#define SCROLL_UP_MULTIPLIER 2  // How much more sensitive scroll up is vs down
-#define MAX_SCROLL_VALUE 127    // Maximum value for int8_t scroll report
-
 // Tapdance declarations
 enum {
     TD_PASTE_ALTV
@@ -116,7 +112,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                         toggle_drag_scroll();
                         current_scroll_mode = SCROLL_NORMAL;
                     } else {
-                        // When turning on drag scroll, just toggle it
+                        // When turning on drag scroll, release any held mouse buttons to prevent interference
+                        unregister_code(KC_BTN1);
+                        unregister_code(KC_BTN2);
                         toggle_drag_scroll();
                     }
                 }
@@ -211,36 +209,26 @@ void matrix_scan_user(void) {
         // First tab after initial delay
         if (initial_click_sent && elapsed >= TAB_INITIAL_DELAY && last_tab_send == 0) {
             if (click_prev_tab_held) {
-                tap_code16(C(S(KC_TAB)));
+                tap_code16(G(S(KC_TAB)));
             } else if (click_next_tab_held) {
-                tap_code16(C(KC_TAB));
+                tap_code16(G(KC_TAB));
             }
             last_tab_send = elapsed;
         }
         // Subsequent tabs at repeat rate
         else if (last_tab_send > 0 && (elapsed - last_tab_send) >= TAB_REPEAT_DELAY) {
             if (click_prev_tab_held) {
-                tap_code16(C(S(KC_TAB)));
+                tap_code16(G(S(KC_TAB)));
             } else if (click_next_tab_held) {
-                tap_code16(C(KC_TAB));
+                tap_code16(G(KC_TAB));
             }
             last_tab_send = elapsed;
         }
     }
 }
 
-// Normal scroll processing with asymmetric sensitivity
+// Pass through scroll processing
 report_mouse_t pointing_device_task_user(report_mouse_t mouse_report) {
-    // Make scroll up more sensitive than scroll down
-    if (mouse_report.v > 0) {
-        // Scroll up - multiply with bounds checking to prevent overflow
-        int16_t new_value = (int16_t)mouse_report.v * SCROLL_UP_MULTIPLIER;
-        mouse_report.v = (new_value > MAX_SCROLL_VALUE) ? MAX_SCROLL_VALUE : new_value;
-    }
-    // Scroll down remains at normal sensitivity (1x)
-    
-    // Horizontal scroll remains symmetric (1x both directions)
-    
     return mouse_report;
 }
 

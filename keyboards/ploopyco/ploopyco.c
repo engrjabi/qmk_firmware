@@ -130,6 +130,9 @@ void encoder_driver_task(void) {
 
 void toggle_drag_scroll(void) {
     is_drag_scroll ^= 1;
+    // Always reset accumulation when toggling to prevent ghost scrolls
+    scroll_accumulated_h = 0;
+    scroll_accumulated_v = 0;
 }
 
 void cycle_dpi(void) {
@@ -141,10 +144,11 @@ void cycle_dpi(void) {
 report_mouse_t pointing_device_task_kb(report_mouse_t mouse_report) {
     mouse_report = pointing_device_task_user(mouse_report);
     if (is_drag_scroll) {
+        // Accumulate fractional scroll values
         scroll_accumulated_h += (float)mouse_report.x / PLOOPY_DRAGSCROLL_DIVISOR_H;
         scroll_accumulated_v += (float)mouse_report.y / PLOOPY_DRAGSCROLL_DIVISOR_V;
 
-        // Assign integer parts of accumulated scroll values to the mouse report
+        // Extract integer scroll values
         mouse_report.h = (int8_t)scroll_accumulated_h;
 #ifdef PLOOPY_DRAGSCROLL_INVERT
         mouse_report.v = -(int8_t)scroll_accumulated_v;
@@ -152,14 +156,11 @@ report_mouse_t pointing_device_task_kb(report_mouse_t mouse_report) {
         mouse_report.v = (int8_t)scroll_accumulated_v;
 #endif
 
-        // Update accumulated scroll values by subtracting the integer parts
+        // Keep only the fractional part
         scroll_accumulated_h -= (int8_t)scroll_accumulated_h;
         scroll_accumulated_v -= (int8_t)scroll_accumulated_v;
 
-        // Clear the X and Y values of the mouse report
-        mouse_report.x = 0;
-        mouse_report.y = 0;
-
+        // Clear cursor movement
         mouse_report.x = 0;
         mouse_report.y = 0;
     }
