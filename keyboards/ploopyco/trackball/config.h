@@ -18,6 +18,9 @@
 
 #pragma once
 
+/* USB polling rate: 10ms = 100Hz (simulates BLE latency for wireless testing) */
+#define USB_POLLING_INTERVAL_MS 10
+
 /* disable action features */
 //#define NO_ACTION_LAYER
 //#define NO_ACTION_TAPPING
